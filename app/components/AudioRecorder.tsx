@@ -190,9 +190,35 @@ export default function AudioRecorder() {
     };
   }, []);
 
+  const questions = [
+    "How do I check my transfer's status?",
+    "When will my money arrive?",
+    "Why does it say my transfer's complete when the money hasn't arrived yet?",
+    "Why is my transfer taking longer than the estimate?",
+    "What is a proof of payment?",
+    "What's a banking partner reference number?"
+  ];
+
   return (
     <div className="flex flex-col items-center gap-6 p-8 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">Simple Voice Agent</h1>
+      
+      <div className="w-full bg-blue-50 border-2 border-blue-200 rounded-lg p-6 space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Try These Questions:</h2>
+          <p className="text-sm text-blue-700 mb-4 italic">
+            The agent can handle contextual variations of these questions. Feel free to ask them in your own words!
+          </p>
+        </div>
+        <ol className="list-decimal list-inside space-y-2 text-gray-800">
+          {questions.map((question, index) => (
+            <li key={index} className="text-base">
+              {question}
+            </li>
+          ))}
+        </ol>
+      </div>
+
       <div className="flex gap-4">
         {!isRecording ? (
           <button
