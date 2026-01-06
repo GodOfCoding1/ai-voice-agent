@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+
+const MAX_RECORDING_TIME_SECONDS = 60; // 60 seconds limit
 
 export default function AudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
@@ -10,12 +12,14 @@ export default function AudioRecorder() {
   const [error, setError] = useState<string>('');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [recordingTime, setRecordingTime] = useState<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecording = async () => {
     try {
@@ -60,13 +64,33 @@ export default function AudioRecorder() {
         }
         setAudioLevel(0);
         
+        // Clear timer
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        
         // Stop all tracks to release the microphone
         stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      setRecordingTime(0);
       setError('');
+      
+      // Start timer
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          const newTime = prev + 1;
+          // Auto-stop when limit is reached
+          if (newTime >= MAX_RECORDING_TIME_SECONDS) {
+            stopRecording();
+            return MAX_RECORDING_TIME_SECONDS;
+          }
+          return newTime;
+        });
+      }, 1000);
     } catch (err) {
       setError('Failed to access microphone. Please check permissions.');
       console.error('Error accessing microphone:', err);
@@ -77,6 +101,12 @@ export default function AudioRecorder() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
+      // Clear timer
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
     }
   };
 
@@ -151,6 +181,15 @@ export default function AudioRecorder() {
     }
   };
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col items-center gap-6 p-8 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">Simple Voice Agent</h1>
@@ -175,6 +214,26 @@ export default function AudioRecorder() {
 
       {isRecording && (
         <div className="w-full max-w-md space-y-2">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>Recording Time</span>
+            <span className={`font-semibold ${
+              recordingTime >= MAX_RECORDING_TIME_SECONDS - 10
+                ? 'text-red-600'
+                : 'text-gray-700'
+            }`}>
+              {recordingTime}s / {MAX_RECORDING_TIME_SECONDS}s
+            </span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 ${
+                recordingTime >= MAX_RECORDING_TIME_SECONDS - 10
+                  ? 'bg-red-500'
+                  : 'bg-blue-500'
+              }`}
+              style={{ width: `${(recordingTime / MAX_RECORDING_TIME_SECONDS) * 100}%` }}
+            />
+          </div>
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>Audio Level</span>
             <span>{Math.round(audioLevel)}%</span>
