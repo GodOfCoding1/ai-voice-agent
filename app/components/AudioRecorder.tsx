@@ -153,8 +153,7 @@ export default function AudioRecorder() {
 
   return (
     <div className="flex flex-col items-center gap-6 p-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold">Audio Transcription</h1>
-      
+      <h1 className="text-3xl font-bold">Simple Voice Agent</h1>
       <div className="flex gap-4">
         {!isRecording ? (
           <button
