@@ -9,9 +9,13 @@ export default function AudioRecorder() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const startRecording = async () => {
     try {
@@ -23,6 +27,20 @@ export default function AudioRecorder() {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
+      // Set up audio level monitoring
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(stream);
+      
+      analyser.fftSize = 256;
+      microphone.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      
+      // Start monitoring audio levels
+      monitorAudioLevel();
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -32,6 +50,15 @@ export default function AudioRecorder() {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await transcribeAudio(audioBlob);
+        
+        // Clean up audio monitoring
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+        }
+        setAudioLevel(0);
         
         // Stop all tracks to release the microphone
         stream.getTracks().forEach(track => track.stop());
@@ -51,6 +78,29 @@ export default function AudioRecorder() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+  };
+
+  const monitorAudioLevel = () => {
+    if (!analyserRef.current) return;
+    
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    
+    const updateLevel = () => {
+      if (!analyserRef.current) return;
+      
+      analyserRef.current.getByteFrequencyData(dataArray);
+      
+      // Calculate average volume
+      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+      
+      // Normalize to 0-100 range
+      const normalizedLevel = Math.min(100, (average / 255) * 100);
+      setAudioLevel(normalizedLevel);
+      
+      animationFrameRef.current = requestAnimationFrame(updateLevel);
+    };
+    
+    updateLevel();
   };
 
   const transcribeAudio = async (audioBlob: Blob) => {
@@ -123,6 +173,29 @@ export default function AudioRecorder() {
           </button>
         )}
       </div>
+
+      {isRecording && (
+        <div className="w-full max-w-md space-y-2">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>Audio Level</span>
+            <span>{Math.round(audioLevel)}%</span>
+          </div>
+          <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-100 ${
+                audioLevel < 20
+                  ? 'bg-gray-400'
+                  : audioLevel < 60
+                  ? 'bg-green-500'
+                  : audioLevel < 80
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+              }`}
+              style={{ width: `${audioLevel}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="text-gray-600">Transcribing audio...</div>
@@ -213,4 +286,3 @@ export default function AudioRecorder() {
     </div>
   );
 }
-
