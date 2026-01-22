@@ -1,4 +1,10 @@
-import './globals.css';
+import "./globals.css";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Voice Agent - Real-time Streaming",
+  description: "AI-powered voice agent with real-time streaming capabilities",
+};
 
 export default function RootLayout({
   children,
@@ -7,8 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="bg-slate-950 antialiased">{children}</body>
     </html>
   );
 }
-
